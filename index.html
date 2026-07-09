@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soya Bus GTFS Prototype</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    h2 {
+      margin: 12px;
+    }
+
+    #status {
+      margin: 12px;
+    }
+
+    #map {
+      height: calc(100vh - 90px);
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Soya Bus GTFS Prototype</h2>
+  <div id="status">Loading GTFS feed...</div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <script>
+    const map = L.map("map").setView([45.4, 141.9], 9);
+
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        attribution: "&copy; OpenStreetMap contributors"
+      }
+    ).addTo(map);
+
+    async function loadGTFS() {
+      try {
+        // ZIP is in the same GitHub Pages repo
+        const response = await fetch("./soya_bus_gtfs_prototype.zip");
+
+        if (!response.ok) {
+          throw new Error("Could not fetch GTFS ZIP");
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+
+        const stopsFile = zip.file("stops.txt");
+
+        if (!stopsFile) {
+          throw new Error("stops.txt not found inside ZIP");
+        }
+
+        const stopsText = await stopsFile.async("text");
+
+        const parsed = Papa.parse(stopsText, {
+          header: true,
+          skipEmptyLines: true
+        });
+
+        const bounds = [];
+
+        parsed.data.forEach(stop => {
+          const lat = parseFloat(stop.stop_lat);
+          const lon = parseFloat(stop.stop_lon);
+
+          if (!isNaN(lat) && !isNaN(lon)) {
+            L.marker([lat, lon])
+              .addTo(map)
+              .bindPopup(
+                "<b>" + stop.stop_name + "</b><br>" +
+                "Stop ID: " + stop.stop_id
+              );
+
+            bounds.push([lat, lon]);
+          }
+        });
+
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [30, 30] });
+        }
+
+        document.getElementById("status").textContent =
+          "Loaded " + bounds.length + " GTFS stops";
+
+      } catch (error) {
+        console.error(error);
+
+        document.getElementById("status").textContent =
+          "Error: " + error.message;
+      }
+    }
+
+    loadGTFS();
+  </script>
+</body>
+</html>

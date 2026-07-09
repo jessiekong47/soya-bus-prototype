@@ -1,114 +1,123 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Soya Bus GTFS Prototype</title>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+<script>
+  const map = L.map("map").setView([45.4, 141.9], 9);
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-    }
+  L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { attribution: "&copy; OpenStreetMap contributors" }
+  ).addTo(map);
 
-    h2 {
-      margin: 12px;
-    }
+  async function loadGTFS() {
+    try {
+      const response = await fetch("./soya_bus_gtfs_prototype.zip");
+      const arrayBuffer = await response.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
 
-    #status {
-      margin: 12px;
-    }
+      // Read GTFS files
+      const stopsText = await zip.file("stops.txt").async("text");
+      const stopTimesText = await zip.file("stop_times.txt").async("text");
+      const tripsText = await zip.file("trips.txt").async("text");
 
-    #map {
-      height: calc(100vh - 90px);
-      width: 100%;
-    }
-  </style>
-</head>
+      const stops = Papa.parse(stopsText, {
+        header: true,
+        skipEmptyLines: true
+      }).data;
 
-<body>
-  <h2>Soya Bus GTFS Prototype</h2>
-  <div id="status">Loading GTFS feed...</div>
-  <div id="map"></div>
+      const stopTimes = Papa.parse(stopTimesText, {
+        header: true,
+        skipEmptyLines: true
+      }).data;
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+      const trips = Papa.parse(tripsText, {
+        header: true,
+        skipEmptyLines: true
+      }).data;
 
-  <script>
-    const map = L.map("map").setView([45.4, 141.9], 9);
+      // trip_id -> trip information
+      const tripLookup = {};
+      trips.forEach(trip => {
+        tripLookup[trip.trip_id] = trip;
+      });
 
-    L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        attribution: "&copy; OpenStreetMap contributors"
-      }
-    ).addTo(map);
+      // stop_id -> departures
+      const departuresByStop = {};
 
-    async function loadGTFS() {
-      try {
-        // ZIP is in the same GitHub Pages repo
-        const response = await fetch("./soya_bus_gtfs_prototype.zip");
-
-        if (!response.ok) {
-          throw new Error("Could not fetch GTFS ZIP");
+      stopTimes.forEach(st => {
+        if (!departuresByStop[st.stop_id]) {
+          departuresByStop[st.stop_id] = [];
         }
 
-        const arrayBuffer = await response.arrayBuffer();
-        const zip = await JSZip.loadAsync(arrayBuffer);
+        const trip = tripLookup[st.trip_id];
 
-        const stopsFile = zip.file("stops.txt");
-
-        if (!stopsFile) {
-          throw new Error("stops.txt not found inside ZIP");
-        }
-
-        const stopsText = await stopsFile.async("text");
-
-        const parsed = Papa.parse(stopsText, {
-          header: true,
-          skipEmptyLines: true
+        departuresByStop[st.stop_id].push({
+          time: st.departure_time,
+          headsign: trip ? trip.trip_headsign : ""
         });
+      });
 
-        const bounds = [];
+      const bounds = [];
 
-        parsed.data.forEach(stop => {
-          const lat = parseFloat(stop.stop_lat);
-          const lon = parseFloat(stop.stop_lon);
+      stops.forEach(stop => {
+        const lat = parseFloat(stop.stop_lat);
+        const lon = parseFloat(stop.stop_lon);
 
-          if (!isNaN(lat) && !isNaN(lon)) {
-            L.marker([lat, lon])
-              .addTo(map)
-              .bindPopup(
-                "<b>" + stop.stop_name + "</b><br>" +
-                "Stop ID: " + stop.stop_id
-              );
+        if (isNaN(lat) || isNaN(lon)) return;
 
-            bounds.push([lat, lon]);
-          }
-        });
+        const departures = departuresByStop[stop.stop_id] || [];
 
-        if (bounds.length > 0) {
-          map.fitBounds(bounds, { padding: [30, 30] });
+        // Sort by time
+        departures.sort((a, b) =>
+          a.time.localeCompare(b.time)
+        );
+
+        let departureHTML = "";
+
+        if (departures.length > 0) {
+          departureHTML = `
+            <hr>
+            <b>Scheduled departures</b><br>
+            ${departures.map(d =>
+              `${d.time.substring(0,5)} → ${d.headsign}`
+            ).join("<br>")}
+          `;
+        } else {
+          departureHTML = `
+            <hr>
+            No scheduled departures
+          `;
         }
 
-        document.getElementById("status").textContent =
-          "Loaded " + bounds.length + " GTFS stops";
+        L.marker([lat, lon])
+          .addTo(map)
+          .bindPopup(`
+            <b>${stop.stop_name}</b><br>
+            Stop ID: ${stop.stop_id}
+            ${departureHTML}
+          `);
 
-      } catch (error) {
-        console.error(error);
+        bounds.push([lat, lon]);
+      });
 
-        document.getElementById("status").textContent =
-          "Error: " + error.message;
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, {
+          padding: [30, 30]
+        });
       }
-    }
 
-    loadGTFS();
-  </script>
-</body>
-</html>
+      document.getElementById("status").textContent =
+        "Loaded " + bounds.length +
+        " GTFS stops with departure times";
+
+    } catch (error) {
+      console.error(error);
+
+      document.getElementById("status").textContent =
+        "Error: " + error.message;
+    }
+  }
+
+  loadGTFS();
+</script>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Soya Bus GTFS Prototype</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body{height:100%;margin:0;font-family:Arial,sans-serif}
+#top{padding:10px 14px;height:62px;box-sizing:border-box}
+h2{font-size:20px;margin:0 0 4px}
+#status{font-size:14px}
+#map{height:calc(100% - 62px);background:#ddd}
+.dep{max-height:220px;overflow:auto;min-width:220px}
+</style>
+</head>
+<body>
+<div id="top"><h2>Soya Bus GTFS Prototype</h2><div id="status">Starting map…</div></div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const STOPS = [{"id": "wakkanai", "name": "稚内駅前ターミナル", "lat": 45.4166, "lon": 141.673, "departures": [{"time": "08:26", "headsign": "稚内駅前ターミナル"}, {"time": "09:30", "headsign": "鬼志別ターミナル"}, {"time": "09:46", "headsign": "稚内駅前ターミナル"}, {"time": "12:04", "headsign": "稚内駅前ターミナル"}, {"time": "13:30", "headsign": "鬼志別ターミナル"}, {"time": "16:12", "headsign": "鬼志別ターミナル"}, {"time": "16:18", "headsign": "稚内駅前ターミナル"}, {"time": "19:30", "headsign": "鬼志別ターミナル"}]}, {"id": "minami_eki", "name": "南駅前", "lat": 45.426182, "lon": 141.696909, "departures": [{"time": "08:09", "headsign": "稚内駅前ターミナル"}, {"time": "09:29", "headsign": "稚内駅前ターミナル"}, {"time": "09:36", "headsign": "鬼志別ターミナル"}, {"time": "11:47", "headsign": "稚内駅前ターミナル"}, {"time": "13:36", "headsign": "鬼志別ターミナル"}, {"time": "16:01", "headsign": "稚内駅前ターミナル"}, {"time": "16:18", "headsign": "鬼志別ターミナル"}, {"time": "19:36", "headsign": "鬼志別ターミナル"}]}, {"id": "daikoku4", "name": "大黒４丁目", "lat": 45.435764, "lon": 141.720818, "departures": [{"time": "08:07", "headsign": "稚内駅前ターミナル"}, {"time": "09:27", "headsign": "稚内駅前ターミナル"}, {"time": "09:38", "headsign": "鬼志別ターミナル"}, {"time": "11:45", "headsign": "稚内駅前ターミナル"}, {"time": "13:38", "headsign": "鬼志別ターミナル"}, {"time": "15:59", "headsign": "稚内駅前ターミナル"}, {"time": "16:20", "headsign": "鬼志別ターミナル"}, {"time": "19:38", "headsign": "鬼志別ターミナル"}]}, {"id": "shiomi5", "name": "潮見５丁目", "lat": 45.445345, "lon": 141.744727, "departures": [{"time": "08:00", "headsign": "稚内駅前ターミナル"}, {"time": "09:24", "headsign": "稚内駅前ターミナル"}, {"time": "09:41", "headsign": "鬼志別ターミナル"}, {"time": "11:42", "headsign": "稚内駅前ターミナル"}, {"time": "13:41", "headsign": "鬼志別ターミナル"}, {"time": "15:56", "headsign": "稚内駅前ターミナル"}, {"time": "16:23", "headsign": "鬼志別ターミナル"}, {"time": "19:41", "headsign": "鬼志別ターミナル"}]}, {"id": "hamanasu", "name": "はまなす団地", "lat": 45.454927, "lon": 141.768636, "departures": [{"time": "07:58", "headsign": "稚内駅前ターミナル"}, {"time": "09:21", "headsign": "稚内駅前ターミナル"}, {"time": "09:43", "headsign": "鬼志別ターミナル"}, {"time": "11:40", "headsign": "稚内駅前ターミナル"}, {"time": "13:43", "headsign": "鬼志別ターミナル"}, {"time": "15:54", "headsign": "稚内駅前ターミナル"}, {"time": "16:25", "headsign": "鬼志別ターミナル"}, {"time": "19:43", "headsign": "鬼志別ターミナル"}]}, {"id": "koetoi", "name": "声問", "lat": 45.464509, "lon": 141.792545, "departures": [{"time": "07:51", "headsign": "稚内駅前ターミナル"}, {"time": "09:14", "headsign": "稚内駅前ターミナル"}, {"time": "09:49", "headsign": "鬼志別ターミナル"}, {"time": "11:33", "headsign": "稚内駅前ターミナル"}, {"time": "13:49", "headsign": "鬼志別ターミナル"}, {"time": "15:48", "headsign": "稚内駅前ターミナル"}, {"time": "16:31", "headsign": "鬼志別ターミナル"}, {"time": "19:49", "headsign": "鬼志別ターミナル"}]}, {"id": "driving_school", "name": "自動車学校", "lat": 45.474091, "lon": 141.816455, "departures": [{"time": "07:49", "headsign": "稚内駅前ターミナル"}, {"time": "09:12", "headsign": "稚内駅前ターミナル"}, {"time": "09:51", "headsign": "鬼志別ターミナル"}, {"time": "11:31", "headsign": "稚内駅前ターミナル"}, {"time": "13:51", "headsign": "鬼志別ターミナル"}, {"time": "15:46", "headsign": "稚内駅前ターミナル"}, {"time": "16:33", "headsign": "鬼志別ターミナル"}, {"time": "19:51", "headsign": "鬼志別ターミナル"}]}, {"id": "masuhoro_iriguchi", "name": "増幌入口", "lat": 45.483673, "lon": 141.840364, "departures": [{"time": "07:42", "headsign": "稚内駅前ターミナル"}, {"time": "09:05", "headsign": "稚内駅前ターミナル"}, {"time": "09:57", "headsign": "鬼志別ターミナル"}, {"time": "11:25", "headsign": "稚内駅前ターミナル"}, {"time": "13:57", "headsign": "鬼志別ターミナル"}, {"time": "15:40", "headsign": "稚内駅前ターミナル"}, {"time": "16:39", "headsign": "鬼志別ターミナル"}, {"time": "19:57", "headsign": "鬼志別ターミナル"}]}, {"id": "tomiso", "name": "富磯", "lat": 45.493255, "lon": 141.864273, "departures": [{"time": "07:36", "headsign": "稚内駅前ターミナル"}, {"time": "08:59", "headsign": "稚内駅前ターミナル"}, {"time": "10:04", "headsign": "鬼志別ターミナル"}, {"time": "11:19", "headsign": "稚内駅前ターミナル"}, {"time": "14:04", "headsign": "鬼志別ターミナル"}, {"time": "15:34", "headsign": "稚内駅前ターミナル"}, {"time": "16:46", "headsign": "鬼志別ターミナル"}, {"time": "20:04", "headsign": "鬼志別ターミナル"}]}, {"id": "soya", "name": "宗谷", "lat": 45.502836, "lon": 141.888182, "departures": [{"time": "07:31", "headsign": "稚内駅前ターミナル"}, {"time": "08:54", "headsign": "稚内駅前ターミナル"}, {"time": "10:09", "headsign": "鬼志別ターミナル"}, {"time": "11:14", "headsign": "稚内駅前ターミナル"}, {"time": "14:09", "headsign": "鬼志別ターミナル"}, {"time": "15:29", "headsign": "稚内駅前ターミナル"}, {"time": "16:51", "headsign": "鬼志別ターミナル"}, {"time": "20:09", "headsign": "鬼志別ターミナル"}]}, {"id": "daini_kiyohama", "name": "第二清浜", "lat": 45.512418, "lon": 141.912091, "departures": [{"time": "07:26", "headsign": "稚内駅前ターミナル"}, {"time": "08:49", "headsign": "稚内駅前ターミナル"}, {"time": "10:14", "headsign": "鬼志別ターミナル"}, {"time": "11:09", "headsign": "稚内駅前ターミナル"}, {"time": "14:14", "headsign": "鬼志別ターミナル"}, {"time": "15:24", "headsign": "稚内駅前ターミナル"}, {"time": "16:56", "headsign": "鬼志別ターミナル"}, {"time": "20:14", "headsign": "鬼志別ターミナル"}]}, {"id": "soya_misaki", "name": "宗谷岬", "lat": 45.522, "lon": 141.936, "departures": [{"time": "07:21", "headsign": "稚内駅前ターミナル"}, {"time": "08:44", "headsign": "稚内駅前ターミナル"}, {"time": "10:20", "headsign": "鬼志別ターミナル"}, {"time": "11:04", "headsign": "稚内駅前ターミナル"}, {"time": "14:20", "headsign": "鬼志別ターミナル"}, {"time": "15:20", "headsign": "稚内駅前ターミナル"}, {"time": "17:02", "headsign": "鬼志別ターミナル"}, {"time": "20:20", "headsign": "鬼志別ターミナル"}]}, {"id": "omisaki_school", "name": "大岬小学校前", "lat": 45.484, "lon": 141.983, "departures": [{"time": "07:18", "headsign": "稚内駅前ターミナル"}, {"time": "08:41", "headsign": "稚内駅前ターミナル"}, {"time": "10:23", "headsign": "鬼志別ターミナル"}, {"time": "11:01", "headsign": "稚内駅前ターミナル"}, {"time": "14:23", "headsign": "鬼志別ターミナル"}, {"time": "15:16", "headsign": "稚内駅前ターミナル"}, {"time": "17:05", "headsign": "鬼志別ターミナル"}, {"time": "20:23", "headsign": "鬼志別ターミナル"}]}, {"id": "higashiura", "name": "東浦", "lat": 45.446, "lon": 142.03, "departures": [{"time": "07:02", "headsign": "稚内駅前ターミナル"}, {"time": "08:25", "headsign": "稚内駅前ターミナル"}, {"time": "10:39", "headsign": "鬼志別ターミナル"}, {"time": "10:45", "headsign": "稚内駅前ターミナル"}, {"time": "14:39", "headsign": "鬼志別ターミナル"}, {"time": "15:00", "headsign": "稚内駅前ターミナル"}, {"time": "17:21", "headsign": "鬼志別ターミナル"}, {"time": "20:39", "headsign": "鬼志別ターミナル"}]}, {"id": "chiraibetsu_school", "name": "知来別学校前", "lat": 45.408, "lon": 142.077, "departures": [{"time": "06:55", "headsign": "稚内駅前ターミナル"}, {"time": "08:18", "headsign": "稚内駅前ターミナル"}, {"time": "10:38", "headsign": "稚内駅前ターミナル"}, {"time": "10:46", "headsign": "鬼志別ターミナル"}, {"time": "14:46", "headsign": "鬼志別ターミナル"}, {"time": "14:53", "headsign": "稚内駅前ターミナル"}, {"time": "17:28", "headsign": "鬼志別ターミナル"}, {"time": "20:46", "headsign": "鬼志別ターミナル"}]}, {"id": "hamaonishibetsu_post", "name": "浜鬼志別局前", "lat": 45.37, "lon": 142.124, "departures": [{"time": "06:46", "headsign": "稚内駅前ターミナル"}, {"time": "08:09", "headsign": "稚内駅前ターミナル"}, {"time": "10:29", "headsign": "稚内駅前ターミナル"}, {"time": "10:55", "headsign": "鬼志別ターミナル"}, {"time": "14:44", "headsign": "稚内駅前ターミナル"}, {"time": "14:55", "headsign": "鬼志別ターミナル"}, {"time": "17:37", "headsign": "鬼志別ターミナル"}, {"time": "20:55", "headsign": "鬼志別ターミナル"}]}, {"id": "onishibetsu", "name": "鬼志別ターミナル", "lat": 45.332, "lon": 142.171, "departures": [{"time": "06:37", "headsign": "稚内駅前ターミナル"}, {"time": "08:00", "headsign": "稚内駅前ターミナル"}, {"time": "10:20", "headsign": "稚内駅前ターミナル"}, {"time": "11:04", "headsign": "鬼志別ターミナル"}, {"time": "14:35", "headsign": "稚内駅前ターミナル"}, {"time": "15:04", "headsign": "鬼志別ターミナル"}, {"time": "17:46", "headsign": "鬼志別ターミナル"}, {"time": "21:04", "headsign": "鬼志別ターミナル"}]}];
+const statusEl=document.getElementById("status");
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+try{
+ if(typeof L==="undefined") throw new Error("Leaflet failed to load");
+ const map=L.map("map").setView([45.4,141.9],9);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+   attribution:"&copy; OpenStreetMap contributors",maxZoom:19
+ }).addTo(map);
+ const bounds=[];
+ STOPS.forEach(s=>{
+   let rows=s.departures.length
+     ? s.departures.map(d=>esc(d.time)+" → "+esc(d.headsign)).join("<br>")
+     : "No scheduled departures";
+   L.marker([s.lat,s.lon]).addTo(map).bindPopup(
+     "<b>"+esc(s.name)+"</b><br>Stop ID: "+esc(s.id)+"<hr><div class='dep'><b>Scheduled departures</b><br>"+rows+"</div>",
+     {maxWidth:330,maxHeight:320}
+   );
+   bounds.push([s.lat,s.lon]);
+ });
+ if(bounds.length) map.fitBounds(bounds,{padding:[25,25]});
+ statusEl.textContent="Loaded "+STOPS.length+" stops — click a marker for departure times";
+}catch(e){
+ statusEl.textContent="Error: "+e.message;
+ console.error(e);
+}
+</script>
+</body>
+</html>

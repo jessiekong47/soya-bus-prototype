@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Soya Bus GTFS Prototype</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+html,body{height:100%;margin:0;font-family:Arial,sans-serif}
+#top{height:72px;box-sizing:border-box;padding:9px 14px}
+h2{margin:0 0 4px;font-size:20px}
+#status{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#map{height:calc(100% - 72px);background:#ddd}
+.dep{max-height:220px;overflow:auto;min-width:230px}
+</style>
+</head>
+<body>
+<div id="top"><h2>Soya Bus GTFS Prototype</h2><div id="status">Loading the hosted GTFS ZIP…</div></div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<script>
+const statusEl = document.getElementById("status");
+const FEED_URL = "./soya_bus_gtfs_prototype.zip";
+
+function cleanKey(s){ return String(s ?? "").replace(/^\uFEFF/, "").trim(); }
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+// Small CSV parser supporting quoted GTFS fields and CRLF.
+function parseCSV(text){
+  text = text.replace(/^\uFEFF/, "");
+  const rows=[]; let row=[], field="", q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c === '"' && text[i+1] === '"'){ field+='"'; i++; }
+      else if(c === '"'){ q=false; }
+      else field+=c;
+    } else {
+      if(c === '"') q=true;
+      else if(c === ","){ row.push(field); field=""; }
+      else if(c === "\n"){ row.push(field.replace(/\r$/,"")); rows.push(row); row=[]; field=""; }
+      else field+=c;
+    }
+  }
+  if(field.length || row.length){ row.push(field.replace(/\r$/,"")); rows.push(row); }
+  if(!rows.length) return [];
+  const headers=rows.shift().map(cleanKey);
+  return rows.filter(r=>r.some(x=>x!=="")).map(r=>{
+    const o={}; headers.forEach((h,i)=>o[h]=r[i] ?? ""); return o;
+  });
+}
+
+async function main(){
+  try{
+    if(typeof L==="undefined") throw new Error("Leaflet failed to load");
+    if(typeof fflate==="undefined") throw new Error("ZIP library failed to load");
+
+    statusEl.textContent="Fetching "+FEED_URL+" …";
+    const res=await fetch(FEED_URL+"?cache="+Date.now(), {cache:"no-store"});
+    if(!res.ok) throw new Error("ZIP fetch failed: HTTP "+res.status);
+
+    const bytes=new Uint8Array(await res.arrayBuffer());
+    statusEl.textContent="Fetched "+bytes.length.toLocaleString()+" bytes; unzipping…";
+    const files=fflate.unzipSync(bytes);
+
+    function gtfsText(name){
+      if(!files[name]) throw new Error(name+" not found in ZIP");
+      return fflate.strFromU8(files[name]);
+    }
+
+    const stops=parseCSV(gtfsText("stops.txt"));
+    const stopTimes=parseCSV(gtfsText("stop_times.txt"));
+    const trips=parseCSV(gtfsText("trips.txt"));
+
+    const tripById={};
+    trips.forEach(t=>tripById[cleanKey(t.trip_id)]=t);
+
+    const depByStop={};
+    stopTimes.forEach(st=>{
+      const sid=cleanKey(st.stop_id);
+      const tid=cleanKey(st.trip_id);
+      if(!depByStop[sid]) depByStop[sid]=[];
+      depByStop[sid].push({
+        time:(st.departure_time || st.arrival_time || "").slice(0,5),
+        headsign:(tripById[tid] && tripById[tid].trip_headsign) || tid
+      });
+    });
+    Object.values(depByStop).forEach(a=>a.sort((x,y)=>x.time.localeCompare(y.time)));
+
+    const map=L.map("map").setView([45.4,141.9],9);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+      attribution:"&copy; OpenStreetMap contributors", maxZoom:19
+    }).addTo(map);
+
+    const bounds=[]; let count=0;
+    stops.forEach(s=>{
+      const lat=parseFloat(s.stop_lat), lon=parseFloat(s.stop_lon);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+      const sid=cleanKey(s.stop_id);
+      const deps=depByStop[sid] || [];
+      const rows=deps.length
+        ? deps.map(d=>esc(d.time)+" → "+esc(d.headsign)).join("<br>")
+        : "No scheduled departures";
+      L.marker([lat,lon]).addTo(map).bindPopup(
+        "<b>"+esc(s.stop_name)+"</b><br>Stop ID: "+esc(sid)+
+        "<hr><div class='dep'><b>Scheduled departures</b><br>"+rows+"</div>",
+        {maxWidth:340,maxHeight:320}
+      );
+      bounds.push([lat,lon]); count++;
+    });
+
+    if(bounds.length) map.fitBounds(bounds,{padding:[25,25]});
+    statusEl.textContent="SUCCESS: read hosted GTFS ZIP — "+count+" stops, "+stopTimes.length+" stop times. Click a marker.";
+  }catch(e){
+    console.error(e);
+    statusEl.textContent="ERROR: "+e.message;
+    document.getElementById("map").innerHTML =
+      "<pre style='padding:16px;white-space:pre-wrap'>"+esc(e.stack || e.message)+"</pre>";
+  }
+}
+main();
+</script>
+</body>
+</html>
